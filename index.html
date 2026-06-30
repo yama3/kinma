@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>撮影会タイムテーブル</title>
+<style>
+  :root {
+    --bg: #11161c;
+    --panel: #1b232c;
+    --text: #eef2f6;
+    --muted: #93a1ad;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+    padding-bottom: 90px;
+  }
+  header {
+    padding: 14px 16px 8px;
+    text-align: center;
+  }
+  header h1 {
+    font-size: 18px;
+    margin: 0 0 10px;
+  }
+  .legend {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+  .legend span.dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+    margin-right: 4px;
+    vertical-align: -1px;
+  }
+  .part-bar {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin: 8px 0 16px;
+  }
+  .part-bar button {
+    background: #2a3540;
+    color: var(--text);
+    border: 1px solid #3a4856;
+    padding: 8px 22px;
+    border-radius: 20px;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  .part-bar button.active {
+    background: #4c8dff;
+    border-color: #4c8dff;
+    color: #fff;
+    font-weight: bold;
+  }
+  main {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    padding: 0 12px;
+  }
+  .map-wrap {
+    position: relative;
+    width: 420px;
+    max-width: 92vw;
+    line-height: 0;
+  }
+  .map-wrap img {
+    width: 100%;
+    display: block;
+    border-radius: 6px;
+  }
+  .tag {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    padding: 1px 5px;
+    border-radius: 7px;
+    font-size: 9.5px;
+    font-weight: 600;
+    white-space: nowrap;
+    line-height: 1.5;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.25);
+    transition: left 0.7s ease, top 0.7s ease, opacity 0.4s ease;
+    pointer-events: none;
+    z-index: 2;
+  }
+  .tag.hidden {
+    opacity: 0;
+  }
+  footer.bottom-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: #161c22;
+    border-top: 1px solid #2a3540;
+    display: flex;
+    justify-content: center;
+    padding: 10px;
+  }
+  #openSelect {
+    background: #ffb020;
+    color: #1a1200;
+    border: none;
+    padding: 10px 28px;
+    border-radius: 22px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+  }
+  dialog {
+    width: 480px;
+    max-width: 94vw;
+    max-height: 82vh;
+    border: none;
+    border-radius: 12px;
+    padding: 0;
+    background: var(--panel);
+    color: var(--text);
+  }
+  dialog::backdrop {
+    background: rgba(0,0,0,0.6);
+  }
+  .dlg-head {
+    padding: 14px 16px 10px;
+    border-bottom: 1px solid #2a3540;
+    position: sticky;
+    top: 0;
+    background: var(--panel);
+  }
+  .dlg-head h3 {
+    margin: 0 0 10px;
+    font-size: 15px;
+  }
+  .dlg-head input[type="search"] {
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid #3a4856;
+    background: #11161c;
+    color: var(--text);
+    font-size: 14px;
+  }
+  .dlg-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 10px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .dlg-actions button {
+    background: none;
+    border: 1px solid #3a4856;
+    color: var(--muted);
+    border-radius: 14px;
+    padding: 4px 12px;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .dlg-body {
+    padding: 6px 16px 16px;
+    overflow-y: auto;
+    max-height: calc(82vh - 110px);
+  }
+  .group-block { margin-top: 12px; }
+  .group-block h4 {
+    font-size: 12px;
+    margin: 6px 0;
+    color: var(--muted);
+  }
+  .perf-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 4px;
+    border-radius: 6px;
+    font-size: 13px;
+  }
+  .perf-row:hover { background: #222d36; }
+  .perf-row .swatch {
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+  .dlg-foot {
+    padding: 10px 16px;
+    border-top: 1px solid #2a3540;
+    text-align: center;
+    position: sticky;
+    bottom: 0;
+    background: var(--panel);
+  }
+  .dlg-foot button {
+    background: #4c8dff;
+    color: #fff;
+    border: none;
+    padding: 8px 26px;
+    border-radius: 18px;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  .count-note {
+    text-align: center;
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: -6px;
+    margin-bottom: 10px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>屋外撮影会 タイムテーブル</h1>
+  <div class="legend" id="legend"></div>
+</header>
+
+<div class="part-bar" id="partBar"></div>
+<div class="count-note" id="countNote"></div>
+
+<main>
+  <div class="map-wrap" id="outdoorWrap">
+    <img id="outdoorImg" src="images/IMG_4903.JPG" alt="屋外エリア">
+  </div>
+  <div class="map-wrap" id="indoorWrap">
+    <img id="indoorImg" src="images/IMG_4904.JPG" alt="屋内エリア">
+  </div>
+</main>
+
+<footer class="bottom-bar">
+  <button id="openSelect">出演者選択</button>
+</footer>
+
+<dialog id="selectDialog">
+  <div class="dlg-head">
+    <h3>出演者選択（お気に入り）</h3>
+    <input type="search" id="searchBox" placeholder="名前で検索...">
+    <div class="dlg-actions">
+      <span id="favCount">0人選択中</span>
+      <button id="clearFav">すべて解除</button>
+    </div>
+  </div>
+  <div class="dlg-body" id="dlgBody"></div>
+  <div class="dlg-foot">
+    <button id="closeDialog">閉じる</button>
+  </div>
+</dialog>
+
+<script>
+const FAV_KEY = 'kinma_favorites_v1';
+
+let performers = [];
+let groups = {};
+let outdoorZones = {};
+let indoorZones = {};
+let currentPart = '1';
+let favorites = new Set(JSON.parse(localStorage.getItem(FAV_KEY) || '[]'));
+
+function darken(hex, factor) {
+  const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+  const dr = Math.round(r*factor), dg = Math.round(g*factor), db = Math.round(b*factor);
+  return `rgb(${dr},${dg},${db})`;
+}
+
+async function loadData() {
+  const [perfData, outData, inData] = await Promise.all([
+    fetch('data/performers.json').then(r => r.json()),
+    fetch('data/areas_outdoor.json').then(r => r.json()),
+    fetch('data/areas_indoor.json').then(r => r.json()),
+  ]);
+  groups = perfData.groups;
+  performers = perfData.performers.map((p, i) => ({ ...p, id: p.group + '_' + i }));
+  outdoorZones = Object.fromEntries(outData.zones.map(z => [z.id, z]));
+  indoorZones = Object.fromEntries(inData.zones.map(z => [z.id, z]));
+
+  window.__outdoorMeta = { width: outData.width, height: outData.height, label: outData.label };
+  window.__indoorMeta = { width: inData.width, height: inData.height, label: inData.label };
+}
+
+function buildLegend() {
+  const el = document.getElementById('legend');
+  el.innerHTML = Object.entries(groups).map(([key, g]) =>
+    `<span><span class="dot" style="background:${g.color}"></span>${key}グループ</span>`
+  ).join('');
+}
+
+function buildPartBar() {
+  const el = document.getElementById('partBar');
+  const labels = { '1': '1部', '2': '2部', '3': '3部' };
+  el.innerHTML = Object.keys(labels).map(p =>
+    `<button data-part="${p}" class="${p === currentPart ? 'active' : ''}">${labels[p]}</button>`
+  ).join('');
+  el.querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      currentPart = btn.dataset.part;
+      el.querySelectorAll('button').forEach(b => b.classList.toggle('active', b === btn));
+      render();
+    });
+  });
+}
+
+function visiblePerformers() {
+  if (favorites.size === 0) return performers;
+  return performers.filter(p => favorites.has(p.id));
+}
+
+function layoutPositions(zone, count) {
+  const W = zone.x1 - zone.x0, H = zone.y1 - zone.y0;
+  const cols = Math.max(1, Math.round(Math.sqrt(count * W / H)));
+  const rows = Math.ceil(count / cols);
+  const cellW = W / cols, cellH = H / rows;
+  const out = [];
+  for (let i = 0; i < count; i++) {
+    const col = i % cols, row = Math.floor(i / cols);
+    out.push({
+      x: zone.x0 + (col + 0.5) * cellW,
+      y: zone.y0 + (row + 0.5) * cellH,
+    });
+  }
+  return out;
+}
+
+function ensureTag(containerId, perf, stopIndex) {
+  const key = perf.id + '_' + stopIndex;
+  let el = document.querySelector(`.tag[data-key="${CSS.escape(key)}"]`);
+  if (!el) {
+    el = document.createElement('div');
+    el.className = 'tag hidden';
+    el.dataset.key = key;
+    el.textContent = perf.name;
+    const color = groups[perf.group].color;
+    el.style.background = color;
+    el.style.color = darken(color, 0.42);
+  }
+  const container = document.getElementById(containerId);
+  if (el.parentElement !== container) container.appendChild(el);
+  return el;
+}
+
+function render() {
+  const visible = visiblePerformers();
+  document.getElementById('countNote').textContent =
+    favorites.size === 0
+      ? `全${performers.length}名を表示中`
+      : `お気に入り ${favorites.size}名を表示中`;
+
+  // group active (performer, stopIndex) pairs by target zone, per area
+  const outdoorGroups = {};
+  const indoorGroups = {};
+  const activeKeys = new Set();
+
+  visible.forEach(p => {
+    const slot = p.schedule[currentPart];
+    if (!slot) return;
+    slot.stops.forEach((stop, idx) => {
+      activeKeys.add(p.id + '_' + idx);
+      const bucket = stop.area === 'outdoor' ? outdoorGroups : indoorGroups;
+      (bucket[stop.id] ||= []).push({ perf: p, idx });
+    });
+  });
+
+  const outMeta = window.__outdoorMeta, inMeta = window.__indoorMeta;
+
+  // position + show tags for active stops, outdoor
+  Object.entries(outdoorGroups).forEach(([zoneId, list]) => {
+    const zone = outdoorZones[zoneId];
+    if (!zone) return;
+    const positions = layoutPositions(zone, list.length);
+    list.forEach((item, i) => {
+      const el = ensureTag('outdoorWrap', item.perf, item.idx);
+      el.style.left = (positions[i].x / outMeta.width * 100) + '%';
+      el.style.top = (positions[i].y / outMeta.height * 100) + '%';
+      el.classList.remove('hidden');
+    });
+  });
+
+  Object.entries(indoorGroups).forEach(([zoneId, list]) => {
+    const zone = indoorZones[zoneId];
+    if (!zone) return;
+    const positions = layoutPositions(zone, list.length);
+    list.forEach((item, i) => {
+      const el = ensureTag('indoorWrap', item.perf, item.idx);
+      el.style.left = (positions[i].x / inMeta.width * 100) + '%';
+      el.style.top = (positions[i].y / inMeta.height * 100) + '%';
+      el.classList.remove('hidden');
+    });
+  });
+
+  // hide tags for stops not active this part / not visible
+  document.querySelectorAll('#outdoorWrap .tag, #indoorWrap .tag').forEach(el => {
+    if (!activeKeys.has(el.dataset.key)) el.classList.add('hidden');
+  });
+}
+
+function buildDialog() {
+  const body = document.getElementById('dlgBody');
+  const byGroup = {};
+  performers.forEach(p => (byGroup[p.group] ||= []).push(p));
+
+  body.innerHTML = Object.keys(groups).map(g => `
+    <div class="group-block" data-group="${g}">
+      <h4>${g}グループ</h4>
+      ${byGroup[g].map(p => `
+        <label class="perf-row" data-name="${p.name}">
+          <input type="checkbox" data-id="${p.id}" ${favorites.has(p.id) ? 'checked' : ''}>
+          <span class="swatch" style="background:${groups[g].color}"></span>
+          <span>${p.name}</span>
+        </label>
+      `).join('')}
+    </div>
+  `).join('');
+
+  body.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+    cb.addEventListener('change', () => {
+      if (cb.checked) favorites.add(cb.dataset.id);
+      else favorites.delete(cb.dataset.id);
+      localStorage.setItem(FAV_KEY, JSON.stringify([...favorites]));
+      document.getElementById('favCount').textContent = `${favorites.size}人選択中`;
+      render();
+    });
+  });
+
+  document.getElementById('favCount').textContent = `${favorites.size}人選択中`;
+}
+
+function setupDialogControls() {
+  const dialog = document.getElementById('selectDialog');
+  document.getElementById('openSelect').addEventListener('click', () => dialog.showModal());
+  document.getElementById('closeDialog').addEventListener('click', () => dialog.close());
+
+  document.getElementById('searchBox').addEventListener('input', (e) => {
+    const q = e.target.value.trim();
+    document.querySelectorAll('.perf-row').forEach(row => {
+      row.style.display = row.dataset.name.includes(q) ? 'flex' : 'none';
+    });
+    document.querySelectorAll('.group-block').forEach(block => {
+      const anyVisible = [...block.querySelectorAll('.perf-row')].some(r => r.style.display !== 'none');
+      block.style.display = anyVisible ? 'block' : 'none';
+    });
+  });
+
+  document.getElementById('clearFav').addEventListener('click', () => {
+    favorites.clear();
+    localStorage.setItem(FAV_KEY, JSON.stringify([]));
+    document.querySelectorAll('.perf-row input[type="checkbox"]').forEach(cb => cb.checked = false);
+    document.getElementById('favCount').textContent = '0人選択中';
+    render();
+  });
+}
+
+(async function init() {
+  await loadData();
+  buildLegend();
+  buildPartBar();
+  buildDialog();
+  setupDialogControls();
+  render();
+})();
+</script>
+</body>
+</html>
