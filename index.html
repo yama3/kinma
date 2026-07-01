@@ -47,15 +47,24 @@
   .group-times {
     display: flex;
     justify-content: center;
-    gap: 6px;
-    flex-wrap: wrap;
     margin-bottom: 8px;
   }
-  .group-times .chip {
+  .group-times table {
+    border-collapse: separate;
+    border-spacing: 4px;
+  }
+  .group-times th,
+  .group-times td {
     font-size: 11px;
     font-weight: 600;
-    padding: 2px 8px;
-    border-radius: 10px;
+    padding: 3px 10px;
+    border-radius: 8px;
+    white-space: nowrap;
+  }
+  .group-times td {
+    background: #2a3540;
+    color: var(--text);
+    font-weight: 500;
   }
   .part-bar {
     display: flex;
@@ -336,12 +345,37 @@ function buildLegend() {
   ).join('');
 }
 
+// A part is 70 minutes total: 前半 25分 + 後半 25分 + チェキ 20分(表示しない)
+const HALF_MINUTES = 25;
+
+function parseTimeToMinutes(hhmm) {
+  const [h, m] = hhmm.split(':').map(Number);
+  return h * 60 + m;
+}
+
+function formatMinutes(mins) {
+  const h = Math.floor(mins / 60), m = mins % 60;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+
+function halfTimeRange(fullRange) {
+  const start = parseTimeToMinutes(fullRange.split('-')[0]);
+  const halfStart = start + currentHalf * HALF_MINUTES;
+  const halfEnd = halfStart + HALF_MINUTES;
+  return `${formatMinutes(halfStart)}-${formatMinutes(halfEnd)}`;
+}
+
 function renderGroupTimes() {
   const el = document.getElementById('groupTimes');
-  el.innerHTML = Object.entries(groups).map(([key, g]) => {
-    const time = g.times[currentPart] || '';
-    return `<span class="chip" style="background:${g.color};color:${darken(g.color, 0.42)}">${key} ${time}</span>`;
+  const keys = Object.keys(groups);
+  const headerCells = keys.map(key =>
+    `<th style="background:${groups[key].color};color:${darken(groups[key].color, 0.42)}">${key}グループ</th>`
+  ).join('');
+  const dataCells = keys.map(key => {
+    const fullRange = groups[key].times[currentPart] || '';
+    return `<td>${fullRange ? halfTimeRange(fullRange) : ''}</td>`;
   }).join('');
+  el.innerHTML = `<table><tr>${headerCells}</tr><tr>${dataCells}</tr></table>`;
 }
 
 function buildPartBar() {
