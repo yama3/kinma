@@ -47,17 +47,20 @@
   .part-bar {
     display: flex;
     justify-content: center;
+    flex-wrap: wrap;
     gap: 8px;
     margin: 8px 0 16px;
+    padding: 0 12px;
   }
   .part-bar button {
     background: #2a3540;
     color: var(--text);
     border: 1px solid #3a4856;
-    padding: 8px 22px;
+    padding: 8px 16px;
     border-radius: 20px;
-    font-size: 14px;
+    font-size: 13px;
     cursor: pointer;
+    white-space: nowrap;
   }
   .part-bar button.active {
     background: #4c8dff;
@@ -227,7 +230,7 @@
 <body>
 
 <header>
-  <h1>屋外撮影会 タイムテーブル</h1>
+  <h1>撮影会 タイムテーブル</h1>
   <div class="legend" id="legend"></div>
 </header>
 
@@ -270,6 +273,7 @@ let groups = {};
 let outdoorZones = {};
 let indoorZones = {};
 let currentPart = '1';
+let currentHalf = 0; // 0 = 前半, 1 = 後半
 let favorites = new Set(JSON.parse(localStorage.getItem(FAV_KEY) || '[]'));
 
 function darken(hex, factor) {
@@ -302,14 +306,24 @@ function buildLegend() {
 
 function buildPartBar() {
   const el = document.getElementById('partBar');
-  const labels = { '1': '1部', '2': '2部', '3': '3部' };
-  el.innerHTML = Object.keys(labels).map(p =>
-    `<button data-part="${p}" class="${p === currentPart ? 'active' : ''}">${labels[p]}</button>`
+  const partLabels = { '1': '1部', '2': '2部', '3': '3部' };
+  const halfLabels = ['前半', '後半'];
+  const slots = [];
+  Object.keys(partLabels).forEach(p => {
+    halfLabels.forEach((h, hi) => {
+      slots.push({ part: p, half: hi, label: `${partLabels[p]} ${h}` });
+    });
+  });
+  el.innerHTML = slots.map(s =>
+    `<button data-part="${s.part}" data-half="${s.half}" class="${s.part === currentPart && s.half === currentHalf ? 'active' : ''}">${s.label}</button>`
   ).join('');
   el.querySelectorAll('button').forEach(btn => {
     btn.addEventListener('click', () => {
       currentPart = btn.dataset.part;
-      el.querySelectorAll('button').forEach(b => b.classList.toggle('active', b === btn));
+      currentHalf = Number(btn.dataset.half);
+      el.querySelectorAll('button').forEach(b => {
+        b.classList.toggle('active', b === btn);
+      });
       render();
     });
   });
@@ -337,7 +351,7 @@ function layoutPositions(zone, count) {
 }
 
 function ensureTag(containerId, perf, stopIndex) {
-  const key = perf.id + '_' + stopIndex;
+  const key = `${perf.id}_${stopIndex}`;
   let el = document.querySelector(`.tag[data-key="${CSS.escape(key)}"]`);
   if (!el) {
     el = document.createElement('div');
@@ -360,7 +374,8 @@ function render() {
       ? `全${performers.length}名を表示中`
       : `お気に入り ${favorites.size}名を表示中`;
 
-  // group active (performer, stopIndex) pairs by target zone, per area
+  // group active (performer, currentHalf) pairs by target zone, per area.
+  // Only the stop matching currentHalf (前半=0 / 後半=1) is shown at a time.
   const outdoorGroups = {};
   const indoorGroups = {};
   const activeKeys = new Set();
@@ -368,11 +383,12 @@ function render() {
   visible.forEach(p => {
     const slot = p.schedule[currentPart];
     if (!slot) return;
-    slot.stops.forEach((stop, idx) => {
-      activeKeys.add(p.id + '_' + idx);
-      const bucket = stop.area === 'outdoor' ? outdoorGroups : indoorGroups;
-      (bucket[stop.id] ||= []).push({ perf: p, idx });
-    });
+    const stop = slot.stops[currentHalf];
+    if (!stop) return;
+    activeKeys.add(`${p.id}_${currentHalf}`);
+    const bucket = stop.area === 'outdoor' ? outdoorGroups : indoorGroups;
+    if (!bucket[stop.id]) bucket[stop.id] = [];
+    bucket[stop.id].push(p);
   });
 
   const outMeta = window.__outdoorMeta, inMeta = window.__indoorMeta;
@@ -382,10 +398,10 @@ function render() {
     const zone = outdoorZones[zoneId];
     if (!zone) return;
     const positions = layoutPositions(zone, list.length);
-    list.forEach((item, i) => {
-      const el = ensureTag('outdoorWrap', item.perf, item.idx);
-      el.style.left = (positions[i].x / outMeta.width * 100) + '%';
-      el.style.top = (positions[i].y / outMeta.height * 100) + '%';
+    list.forEach((p, i) => {
+      const el = ensureTag('outdoorWrap', p, currentHalf);
+      el.style.left = `${positions[i].x / outMeta.width * 100}%`;
+      el.style.top = `${positions[i].y / outMeta.height * 100}%`;
       el.classList.remove('hidden');
     });
   });
@@ -394,10 +410,10 @@ function render() {
     const zone = indoorZones[zoneId];
     if (!zone) return;
     const positions = layoutPositions(zone, list.length);
-    list.forEach((item, i) => {
-      const el = ensureTag('indoorWrap', item.perf, item.idx);
-      el.style.left = (positions[i].x / inMeta.width * 100) + '%';
-      el.style.top = (positions[i].y / inMeta.height * 100) + '%';
+    list.forEach((p, i) => {
+      const el = ensureTag('indoorWrap', p, currentHalf);
+      el.style.left = `${positions[i].x / inMeta.width * 100}%`;
+      el.style.top = `${positions[i].y / inMeta.height * 100}%`;
       el.classList.remove('hidden');
     });
   });
@@ -411,7 +427,10 @@ function render() {
 function buildDialog() {
   const body = document.getElementById('dlgBody');
   const byGroup = {};
-  performers.forEach(p => (byGroup[p.group] ||= []).push(p));
+  performers.forEach(p => {
+    if (!byGroup[p.group]) byGroup[p.group] = [];
+    byGroup[p.group].push(p);
+  });
 
   body.innerHTML = Object.keys(groups).map(g => `
     <div class="group-block" data-group="${g}">
@@ -458,7 +477,9 @@ function setupDialogControls() {
   document.getElementById('clearFav').addEventListener('click', () => {
     favorites.clear();
     localStorage.setItem(FAV_KEY, JSON.stringify([]));
-    document.querySelectorAll('.perf-row input[type="checkbox"]').forEach(cb => cb.checked = false);
+    document.querySelectorAll('.perf-row input[type="checkbox"]').forEach(cb => {
+      cb.checked = false;
+    });
     document.getElementById('favCount').textContent = '0人選択中';
     render();
   });
