@@ -27,44 +27,35 @@
     font-size: 18px;
     margin: 0 0 10px;
   }
-  .legend {
-    display: flex;
-    justify-content: center;
-    gap: 10px;
-    flex-wrap: wrap;
-    font-size: 12px;
-    color: var(--muted);
-    margin-bottom: 8px;
-  }
-  .legend span.dot {
-    display: inline-block;
-    width: 10px;
-    height: 10px;
-    border-radius: 3px;
-    margin-right: 4px;
-    vertical-align: -1px;
-  }
   .group-times {
     display: flex;
     justify-content: center;
+    gap: 6px;
+    flex-wrap: wrap;
     margin-bottom: 8px;
   }
-  .group-times table {
-    border-collapse: separate;
-    border-spacing: 4px;
-  }
-  .group-times th,
-  .group-times td {
-    font-size: 11px;
-    font-weight: 600;
-    padding: 3px 10px;
+  .group-times .cap {
+    display: flex;
+    flex-direction: column;
     border-radius: 8px;
+    overflow: hidden;
+    min-width: 66px;
+  }
+  .group-times .cap .name {
+    font-size: 11px;
+    font-weight: 700;
+    text-align: center;
+    padding: 3px 10px;
     white-space: nowrap;
   }
-  .group-times td {
+  .group-times .cap .time {
+    font-size: 11px;
+    font-weight: 500;
+    text-align: center;
+    padding: 3px 10px;
+    white-space: nowrap;
     background: #2a3540;
     color: var(--text);
-    font-weight: 500;
   }
   .part-bar {
     display: flex;
@@ -271,7 +262,6 @@
 
 <header>
   <h1>撮影会 タイムテーブル</h1>
-  <div class="legend" id="legend"></div>
   <div class="group-times" id="groupTimes"></div>
 </header>
 
@@ -338,13 +328,6 @@ async function loadData() {
   window.__indoorMeta = { width: inData.width, height: inData.height, label: inData.label };
 }
 
-function buildLegend() {
-  const el = document.getElementById('legend');
-  el.innerHTML = Object.entries(groups).map(([key, g]) =>
-    `<span><span class="dot" style="background:${g.color}"></span>${key}グループ</span>`
-  ).join('');
-}
-
 // A part is 70 minutes total: 前半 25分 + 後半 25分 + チェキ 20分(表示しない)
 const HALF_MINUTES = 25;
 
@@ -367,15 +350,15 @@ function halfTimeRange(fullRange) {
 
 function renderGroupTimes() {
   const el = document.getElementById('groupTimes');
-  const keys = Object.keys(groups);
-  const headerCells = keys.map(key =>
-    `<th style="background:${groups[key].color};color:${darken(groups[key].color, 0.42)}">${key}グループ</th>`
-  ).join('');
-  const dataCells = keys.map(key => {
-    const fullRange = groups[key].times[currentPart] || '';
-    return `<td>${fullRange ? halfTimeRange(fullRange) : ''}</td>`;
+  el.innerHTML = Object.keys(groups).map(key => {
+    const g = groups[key];
+    const fullRange = g.times[currentPart] || '';
+    const time = fullRange ? halfTimeRange(fullRange) : '';
+    return `<div class="cap">
+      <div class="name" style="background:${g.color};color:${darken(g.color, 0.42)}">${key}グループ</div>
+      <div class="time">${time}</div>
+    </div>`;
   }).join('');
-  el.innerHTML = `<table><tr>${headerCells}</tr><tr>${dataCells}</tr></table>`;
 }
 
 function buildPartBar() {
@@ -562,7 +545,6 @@ function setupDialogControls() {
 
 (async function init() {
   await loadData();
-  buildLegend();
   buildPartBar();
   renderGroupTimes();
   buildDialog();
