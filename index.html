@@ -44,6 +44,19 @@
     margin-right: 4px;
     vertical-align: -1px;
   }
+  .group-times {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+  }
+  .group-times .chip {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 10px;
+  }
   .part-bar {
     display: flex;
     flex-wrap: nowrap;
@@ -250,6 +263,7 @@
 <header>
   <h1>撮影会 タイムテーブル</h1>
   <div class="legend" id="legend"></div>
+  <div class="group-times" id="groupTimes"></div>
 </header>
 
 <div class="part-bar" id="partBar"></div>
@@ -322,6 +336,14 @@ function buildLegend() {
   ).join('');
 }
 
+function renderGroupTimes() {
+  const el = document.getElementById('groupTimes');
+  el.innerHTML = Object.entries(groups).map(([key, g]) => {
+    const time = g.times[currentPart] || '';
+    return `<span class="chip" style="background:${g.color};color:${darken(g.color, 0.42)}">${key} ${time}</span>`;
+  }).join('');
+}
+
 function buildPartBar() {
   const el = document.getElementById('partBar');
   const partLabels = { '1': '1部', '2': '2部', '3': '3部' };
@@ -342,6 +364,7 @@ function buildPartBar() {
       el.querySelectorAll('button').forEach(b => {
         b.classList.toggle('active', b === btn);
       });
+      renderGroupTimes();
       render();
     });
   });
@@ -507,6 +530,7 @@ function setupDialogControls() {
   await loadData();
   buildLegend();
   buildPartBar();
+  renderGroupTimes();
   buildDialog();
   setupDialogControls();
   render();
